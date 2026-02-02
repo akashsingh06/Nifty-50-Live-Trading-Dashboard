@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIFTY 50 F&O Professional Trading Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1a2332;
+            --border-color: #2d3748;
+            --text-primary: #f7fafc;
+            --text-secondary: #a0aec0;
+            --text-muted: #718096;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #8b5cf6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .market-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.open { background: var(--accent-green); }
+        .status-dot.closed { background: var(--accent-red); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .header-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .info-item {
+            background: var(--bg-secondary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Signal Box - Main Display */
+        .signal-container {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .signal-output {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+
+        .signal-header {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            padding: 12px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+
+        .signal-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .signal-row:last-child {
+            border-bottom: none;
+        }
+
+        .signal-label {
+            width: 200px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .signal-value {
+            flex: 1;
+            font-weight: 600;
+        }
+
+        /* Signal Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .badge-bullish { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .badge-bearish { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .badge-sideways { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .badge-buy-call { background: rgba(16, 185, 129, 0.3); color: #4ade80; border: 1px solid var(--accent-green); }
+        .badge-buy-put { background: rgba(239, 68, 68, 0.3); color: #f87171; border: 1px solid var(--accent-red); }
+        .badge-no-trade { background: rgba(107, 114, 128, 0.3); color: #9ca3af; border: 1px solid #6b7280; }
+        .badge-high { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .badge-medium { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .badge-low { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Indicators Panel */
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .indicator-item {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .indicator-name {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .indicator-value {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Reasoning List */
+        .reasoning-list {
+            list-style: none;
+        }
+
+        .reasoning-list li {
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent-blue);
+            font-size: 14px;
+        }
+
+        .reasoning-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 16px;
+        }
+
+        /* Trade Details */
+        .trade-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .trade-item {
+            background: var(--bg-secondary);
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .trade-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .trade-value {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .trade-value.entry { color: var(--accent-blue); }
+        .trade-value.sl { color: var(--accent-red); }
+        .trade-value.target { color: var(--accent-green); }
+        .trade-value.rr { color: var(--accent-purple); }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        /* Refresh Button */
+        .refresh-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+
+        .refresh-btn:disabled {
+            background: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* Constraints Panel */
+        .constraints {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .constraint-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .constraint-icon {
+            font-size: 16px;
+        }
+
+        /* Signal Counter */
+        .signal-counter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .counter-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .counter-value {
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Big Signal Display */
+        .big-signal {
+            text-align: center;
+            padding: 32px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .big-signal.buy-call {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.05));
+            border: 2px solid var(--accent-green);
+        }
+
+        .big-signal.buy-put {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.05));
+            border: 2px solid var(--accent-red);
+        }
+
+        .big-signal.no-trade {
+            background: linear-gradient(135deg, rgba(107, 114, 128, 0.2), rgba(107, 114, 128, 0.05));
+            border: 2px solid #6b7280;
+        }
+
+        .big-signal-text {
+            font-size: 48px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .big-signal.buy-call .big-signal-text { color: var(--accent-green); }
+        .big-signal.buy-put .big-signal-text { color: var(--accent-red); }
+        .big-signal.no-trade .big-signal-text { color: #9ca3af; }
+
+        .big-signal-sub {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        /* Candle Patterns */
+        .candle-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .candle-item {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .candle-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .candle-value {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Principles Box */
+        .principles-box {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+            border: 1px solid var(--accent-purple);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .principles-title {
+            font-weight: 600;
+            color: var(--accent-purple);
+            margin-bottom: 12px;
+        }
+
+        .principles-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            list-style: none;
+        }
+
+        .principles-list li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .principles-list li::before {
+            content: '✓';
+            color: var(--accent-green);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <h1>? NIFTY 50 F&O PROFESSIONAL TRADING</h1>
+                <div class="market-status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="marketStatus">Loading...</span>
+                    <button class="refresh-btn" onclick="requestUpdate()" id="refreshBtn">
+                        ? Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="header-info">
+                <div class="info-item">
+                    <div class="info-label">NIFTY Spot</div>
+                    <div class="info-value" id="spotPrice">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Last Update</div>
+                    <div class="info-value" id="lastUpdate">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Signals Today</div>
+                    <div class="info-value" id="signalsToday">0 / 2</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Trading Window</div>
+                    <div class="info-value">9:20 AM - 2:45 PM</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Core Principles -->
+        <div class="principles-box">
+            <div class="principles-title">? TRADING PRINCIPLES (Strict Adherence)</div>
+            <ul class="principles-list">
+                <li>Capital protection &gt; profits</li>
+                <li>NO TRADE over weak setups</li>
+                <li>Trade only clear trends</li>
+                <li>Max 2 signals per day</li>
+                <li>Risk ≤ 1% per trade</li>
+                <li>Avoid sideways markets</li>
+            </ul>
+        </div>
+
+        <!-- Big Signal Display -->
+        <div class="big-signal no-trade" id="bigSignal">
+            <div class="big-signal-text" id="bigSignalText">ANALYZING...</div>
+            <div class="big-signal-sub" id="bigSignalSub">Waiting for market data</div>
+        </div>
+
+        <!-- Signal Output (Strict Format) -->
+        <div class="signal-container">
+            <div class="signal-output" id="signalOutput">
+                <div class="signal-header">? SIGNAL OUTPUT</div>
+                <div class="signal-row">
+                    <span class="signal-label">Market Trend:</span>
+                    <span class="signal-value" id="marketTrend">--</span>
+                </div>
+                <div class="signal-row">
+                    <span class="signal-label">Signal:</span>
+                    <span class="signal-value" id="signalType">--</span>
+                </div>
+                <div class="signal-row" id="optionRow">
+                    <span class="signal-label">Option Type:</span>
+                    <span class="signal-value" id="optionType">--</span>
+                </div>
+                <div class="signal-row" id="strikeRow">
+                    <span class="signal-label">Strike Price:</span>
+                    <span class="signal-value" id="strikePrice">--</span>
+                </div>
+                <div class="signal-row" id="entryRow">
+                    <span class="signal-label">Entry:</span>
+                    <span class="signal-value" id="entryPrice">--</span>
+                </div>
+                <div class="signal-row" id="slRow">
+                    <span class="signal-label">Stop Loss:</span>
+                    <span class="signal-value" id="stopLoss">--</span>
+                </div>
+                <div class="signal-row" id="targetRow">
+                    <span class="signal-label">Target:</span>
+                    <span class="signal-value" id="targetPrice">--</span>
+                </div>
+                <div class="signal-row" id="rrRow">
+                    <span class="signal-label">Risk-Reward Ratio:</span>
+                    <span class="signal-value" id="rrRatio">--</span>
+                </div>
+                <div class="signal-row">
+                    <span class="signal-label">Confidence:</span>
+                    <span class="signal-value" id="confidence">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Column: Chart & Indicators -->
+            <div>
+                <!-- Chart -->
+                <div class="card">
+                    <div class="card-title">? NIFTY 50 - 5 Min Chart</div>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Indicators -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">? Technical Indicators</div>
+                    <div class="indicators-grid">
+                        <div class="indicator-item">
+                            <div class="indicator-name">EMA 20</div>
+                            <div class="indicator-value" id="ema20">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <div class="indicator-name">EMA 50</div>
+                            <div class="indicator-value" id="ema50">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <div class="indicator-name">RSI (14)</div>
+                            <div class="indicator-value" id="rsi">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <div class="indicator-name">VWAP</div>
+                            <div class="indicator-value" id="vwap">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <div class="indicator-name">Volume</div>
+                            <div class="indicator-value" id="volume">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <div class="indicator-name">India VIX</div>
+                            <div class="indicator-value" id="indiaVix">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Reasoning & Trade Details -->
+            <div>
+                <!-- Reasoning -->
+                <div class="card">
+                    <div class="card-title">? REASONING (Max 3 Points)</div>
+                    <ul class="reasoning-list" id="reasoningList">
+                        <li>Analyzing market conditions...</li>
+                    </ul>
+                </div>
+
+                <!-- Trade Details (if signal) -->
+                <div class="card" style="margin-top: 24px;" id="tradeDetailsCard">
+                    <div class="card-title">? TRADE DETAILS</div>
+                    <div class="trade-details">
+                        <div class="trade-item">
+                            <div class="trade-label">Strike</div>
+                            <div class="trade-value entry" id="tradeStrike">--</div>
+                        </div>
+                        <div class="trade-item">
+                            <div class="trade-label">Entry Logic</div>
+                            <div class="trade-value entry" id="tradeEntry" style="font-size: 12px;">--</div>
+                        </div>
+                        <div class="trade-item">
+                            <div class="trade-label">Stop Loss</div>
+                            <div class="trade-value sl" id="tradeSL">--</div>
+                        </div>
+                        <div class="trade-item">
+                            <div class="trade-label">Target</div>
+                            <div class="trade-value target" id="tradeTarget">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Management -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="card-title">⚠️ RISK MANAGEMENT</div>
+                    <div class="constraints">
+                        <div class="constraint-item">
+                            <span class="constraint-icon">?</span>
+                            <span>Risk ≤ 1% capital</span>
+                        </div>
+                        <div class="constraint-item">
+                            <span class="constraint-icon">?</span>
+                            <span>Max 2 trades/day</span>
+                        </div>
+                        <div class="constraint-item">
+                            <span class="constraint-icon">⏰</span>
+                            <span>9:20 AM - 2:45 PM</span>
+                        </div>
+                        <div class="constraint-item">
+                            <span class="constraint-icon">?</span>
+                            <span>Avoid low volume</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Professional NIFTY 50 F&O Signal Generator | NSE India | Intraday Options Trading</p>
+            <p style="margin-top: 4px;">⚠️ Trading involves risk. Past performance is not indicative of future results.</p>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let priceChart = null;
+
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'NIFTY',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'EMA 20',
+                            data: [],
+                            borderColor: '#10b981',
+                            borderWidth: 1.5,
+                            fill: false,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: 'EMA 50',
+                            data: [],
+                            borderColor: '#ef4444',
+                            borderWidth: 1.5,
+                            fill: false,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: 'VWAP',
+                            data: [],
+                            borderColor: '#8b5cf6',
+                            borderWidth: 1.5,
+                            fill: false,
+                            borderDash: [2, 2]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#a0aec0', font: { size: 11 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#2d3748' },
+                            ticks: { color: '#718096', maxTicksLimit: 10 }
+                        },
+                        y: {
+                            grid: { color: '#2d3748' },
+                            ticks: { color: '#718096' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update display with new data
+        function updateDisplay(data) {
+            if (!data || !data.signal) return;
+
+            const signal = data.signal;
+            const chartData = data.chart_data;
+
+            // Update header info
+            document.getElementById('spotPrice').textContent = `₹${signal.spot_price.toLocaleString()}`;
+            document.getElementById('lastUpdate').textContent = data.timestamp.split(' ')[1];
+            document.getElementById('signalsToday').textContent = `${data.signals_today} / ${data.max_signals}`;
+
+            // Update market status
+            const statusDot = document.getElementById('statusDot');
+            const marketStatusEl = document.getElementById('marketStatus');
+            marketStatusEl.textContent = data.market_status;
+            statusDot.className = 'status-dot ' + (data.market_status.includes('OPEN') ? 'open' : 'closed');
+
+            // Update Big Signal Display
+            const bigSignal = document.getElementById('bigSignal');
+            const bigSignalText = document.getElementById('bigSignalText');
+            const bigSignalSub = document.getElementById('bigSignalSub');
+
+            if (signal.signal === 'BUY CALL (CE)') {
+                bigSignal.className = 'big-signal buy-call';
+                bigSignalText.textContent = '? BUY CALL';
+                bigSignalSub.textContent = `Strike: ${signal.strike_price} CE | Confidence: ${signal.confidence}`;
+            } else if (signal.signal === 'BUY PUT (PE)') {
+                bigSignal.className = 'big-signal buy-put';
+                bigSignalText.textContent = '? BUY PUT';
+                bigSignalSub.textContent = `Strike: ${signal.strike_price} PE | Confidence: ${signal.confidence}`;
+            } else {
+                bigSignal.className = 'big-signal no-trade';
+                bigSignalText.textContent = '⚪ NO TRADE';
+                bigSignalSub.textContent = 'Conditions not ideal - Waiting for clear setup';
+            }
+
+            // Update Signal Output (Strict Format)
+            updateSignalOutput(signal);
+
+            // Update Indicators
+            document.getElementById('ema20').textContent = signal.ema_20.toFixed(2);
+            document.getElementById('ema50').textContent = signal.ema_50.toFixed(2);
+            document.getElementById('rsi').textContent = signal.rsi.toFixed(2);
+            document.getElementById('rsi').style.color = signal.rsi > 65 ? '#ef4444' : (signal.rsi < 35 ? '#10b981' : '#f7fafc');
+            document.getElementById('vwap').textContent = signal.vwap.toFixed(2);
+            document.getElementById('volume').textContent = signal.volume_status;
+            document.getElementById('volume').style.color = signal.volume_status === 'High' ? '#10b981' : (signal.volume_status === 'Low' ? '#ef4444' : '#f7fafc');
+            
+            if (data.india_vix) {
+                document.getElementById('indiaVix').textContent = data.india_vix;
+            }
+
+            // Update Reasoning
+            const reasoningList = document.getElementById('reasoningList');
+            reasoningList.innerHTML = signal.reasoning.map((r, i) => 
+                `<li><strong>${i + 1}.</strong> ${r}</li>`
+            ).join('');
+
+            // Update Trade Details
+            updateTradeDetails(signal);
+
+            // Update Chart
+            if (chartData) {
+                updateChart(chartData);
+            }
+        }
+
+        function updateSignalOutput(signal) {
+            // Market Trend
+            const trendEl = document.getElementById('marketTrend');
+            trendEl.innerHTML = `<span class="badge badge-${signal.market_trend.toLowerCase()}">${signal.market_trend}</span>`;
+
+            // Signal Type
+            const signalEl = document.getElementById('signalType');
+            let signalClass = 'no-trade';
+            if (signal.signal.includes('CALL')) signalClass = 'buy-call';
+            else if (signal.signal.includes('PUT')) signalClass = 'buy-put';
+            signalEl.innerHTML = `<span class="badge badge-${signalClass}">${signal.signal}</span>`;
+
+            // Show/hide trade-specific rows
+            const isNoTrade = signal.signal === 'NO TRADE';
+            document.getElementById('optionRow').style.display = isNoTrade ? 'none' : 'flex';
+            document.getElementById('strikeRow').style.display = isNoTrade ? 'none' : 'flex';
+            document.getElementById('entryRow').style.display = isNoTrade ? 'none' : 'flex';
+            document.getElementById('slRow').style.display = isNoTrade ? 'none' : 'flex';
+            document.getElementById('targetRow').style.display = isNoTrade ? 'none' : 'flex';
+            document.getElementById('rrRow').style.display = isNoTrade ? 'none' : 'flex';
+            document.getElementById('tradeDetailsCard').style.display = isNoTrade ? 'none' : 'block';
+
+            if (!isNoTrade) {
+                document.getElementById('optionType').textContent = signal.option_type;
+                document.getElementById('strikePrice').textContent = `${signal.strike_price} ${signal.strike_type}`;
+                document.getElementById('entryPrice').textContent = signal.entry;
+                document.getElementById('stopLoss').textContent = `₹${signal.stop_loss}`;
+                document.getElementById('stopLoss').style.color = '#ef4444';
+                document.getElementById('targetPrice').textContent = `₹${signal.target}`;
+                document.getElementById('targetPrice').style.color = '#10b981';
+                document.getElementById('rrRatio').textContent = signal.risk_reward_ratio;
+            }
+
+            // Confidence
+            const confEl = document.getElementById('confidence');
+            const confClass = signal.confidence.toLowerCase();
+            confEl.innerHTML = `<span class="badge badge-${confClass}">${signal.confidence}</span>`;
+        }
+
+        function updateTradeDetails(signal) {
+            if (signal.signal === 'NO TRADE') return;
+
+            document.getElementById('tradeStrike').textContent = `${signal.strike_price} ${signal.strike_type}`;
+            document.getElementById('tradeEntry').textContent = signal.entry;
+            document.getElementById('tradeSL').textContent = `₹${signal.stop_loss}`;
+            document.getElementById('tradeTarget').textContent = `₹${signal.target}`;
+        }
+
+        function updateChart(chartData) {
+            if (!priceChart || !chartData) return;
+
+            priceChart.data.labels = chartData.labels;
+            priceChart.data.datasets[0].data = chartData.close;
+            priceChart.data.datasets[1].data = chartData.ema_20;
+            priceChart.data.datasets[2].data = chartData.ema_50;
+            priceChart.data.datasets[3].data = chartData.vwap;
+            priceChart.update('none');
+        }
+
+        // Request manual update
+        function requestUpdate() {
+            const btn = document.getElementById('refreshBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Loading...';
+            
+            socket.emit('request_update');
+            
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = '? Refresh';
+            }, 2000);
+        }
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('market_update', (data) => {
+            console.log('Received update:', data);
+            updateDisplay(data);
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            
+            // Fetch initial data
+            fetch('/api/signal')
+                .then(res => res.json())
+                .then(data => updateDisplay(data))
+                .catch(err => console.error('Error:', err));
+        });
+    </script>
+</body>
+</html>

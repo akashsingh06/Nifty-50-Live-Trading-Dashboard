@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F&O Nifty 50 Live Trading Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --border-color: #30363d;
+            --green: #00ff88;
+            --green-dark: #238636;
+            --red: #ff4757;
+            --red-dark: #da3633;
+            --yellow: #ffc107;
+            --blue: #58a6ff;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            grid-template-rows: auto 1fr auto;
+            gap: 15px;
+            padding: 15px;
+            height: 100vh;
+        }
+        
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--green), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .market-status {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.live {
+            background: var(--green);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* Card Component */
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        /* Signal Card */
+        .signal-card {
+            padding: 25px;
+        }
+        
+        .signal-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        
+        .price-section h3 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .current-price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .price-change {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .price-change.positive {
+            color: var(--green);
+        }
+        
+        .price-change.negative {
+            color: var(--red);
+        }
+        
+        .signal-badge {
+            padding: 15px 30px;
+            border-radius: 12px;
+            text-align: center;
+            min-width: 150px;
+        }
+        
+        .signal-badge.buy {
+            background: rgba(0, 255, 136, 0.15);
+            border: 2px solid var(--green);
+        }
+        
+        .signal-badge.sell {
+            background: rgba(255, 71, 87, 0.15);
+            border: 2px solid var(--red);
+        }
+        
+        .signal-badge.wait {
+            background: rgba(255, 193, 7, 0.15);
+            border: 2px solid var(--yellow);
+        }
+        
+        .signal-badge h4 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .signal-badge.buy h4 {
+            color: var(--green);
+        }
+        
+        .signal-badge.sell h4 {
+            color: var(--red);
+        }
+        
+        .signal-badge.wait h4 {
+            color: var(--yellow);
+        }
+        
+        .signal-badge span {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        /* SL/Target Grid */
+        .sl-target-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .sl-target-item {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .sl-target-item.stop-loss {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+        
+        .sl-target-item.target1 {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+        
+        .sl-target-item.target2 {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+        }
+        
+        .sl-target-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .sl-target-item .value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .sl-target-item.stop-loss .value {
+            color: var(--red);
+        }
+        
+        .sl-target-item.target1 .value {
+            color: var(--green);
+        }
+        
+        .sl-target-item.target2 .value {
+            color: var(--blue);
+        }
+        
+        .sl-target-item .points {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+        
+        /* Chart Container */
+        .chart-container {
+            flex: 1;
+            min-height: 350px;
+        }
+        
+        #priceChart {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* Indicators Panel */
+        .indicator-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .indicator-item {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .indicator-item label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        
+        .indicator-item .value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        /* ML Prediction Panel */
+        .ml-prediction {
+            padding: 15px;
+        }
+        
+        .probability-bars {
+            margin-top: 15px;
+        }
+        
+        .prob-bar {
+            margin-bottom: 12px;
+        }
+        
+        .prob-bar label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+        
+        .prob-bar-fill {
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            overflow: hidden;
+        }
+        
+        .prob-bar-fill .fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .prob-bar.up .fill {
+            background: var(--green);
+        }
+        
+        .prob-bar.down .fill {
+            background: var(--red);
+        }
+        
+        /* Signal Reasons */
+        .signal-reasons {
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+        
+        .signal-reasons h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+        
+        .signal-reasons ul {
+            list-style: none;
+        }
+        
+        .signal-reasons li {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .signal-reasons li:last-child {
+            border-bottom: none;
+        }
+        
+        .signal-reasons li::before {
+            content: '→';
+            color: var(--blue);
+        }
+        
+        /* Risk Reward Badge */
+        .risk-reward-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        
+        .risk-reward-badge.good {
+            border: 1px solid var(--green);
+        }
+        
+        .risk-reward-badge.moderate {
+            border: 1px solid var(--yellow);
+        }
+        
+        .risk-reward-badge.poor {
+            border: 1px solid var(--red);
+        }
+        
+        /* Footer */
+        .footer {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .update-btn {
+            padding: 8px 20px;
+            background: var(--blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .update-btn:hover {
+            background: #4090e0;
+        }
+        
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                grid-row: auto;
+            }
+        }
+        
+        /* Option Chain Table */
+        .option-chain {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .option-chain table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        
+        .option-chain th {
+            padding: 10px;
+            background: var(--bg-tertiary);
+            position: sticky;
+            top: 0;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+        
+        .option-chain td {
+            padding: 8px 10px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .option-chain tr.atm {
+            background: rgba(88, 166, 255, 0.1);
+        }
+        
+        .option-chain .ce {
+            color: var(--green);
+        }
+        
+        .option-chain .pe {
+            color: var(--red);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <h1>? F&O Trading Dashboard</h1>
+            </div>
+            <div class="market-status">
+                <div class="status-item">
+                    <span class="status-dot live"></span>
+                    <span>NIFTY 50</span>
+                </div>
+                <div class="status-item">
+                    <span id="lastUpdate">--:--:--</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Signal Card -->
+            <div class="card">
+                <div class="signal-card">
+                    <div class="signal-main">
+                        <div class="price-section">
+                            <h3>NIFTY 50 SPOT</h3>
+                            <div class="current-price" id="currentPrice">--,---</div>
+                            <div class="price-change" id="priceChange">
+                                <span>-- pts</span>
+                                <span>(--%)</span>
+                            </div>
+                        </div>
+                        <div class="signal-badge wait" id="signalBadge">
+                            <h4 id="signalAction">LOADING</h4>
+                            <span id="signalStrength">Please wait...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="sl-target-grid">
+                        <div class="sl-target-item stop-loss">
+                            <label>? Stop Loss</label>
+                            <div class="value" id="stopLoss">--,---</div>
+                            <div class="points" id="slPoints">-- pts risk</div>
+                        </div>
+                        <div class="sl-target-item target1">
+                            <label>? Target 1</label>
+                            <div class="value" id="target1">--,---</div>
+                            <div class="points" id="t1Points">-- pts reward</div>
+                        </div>
+                        <div class="sl-target-item target2">
+                            <label>? Target 2</label>
+                            <div class="value" id="target2">--,---</div>
+                            <div class="points" id="t2Points">-- pts reward</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 15px; display: flex; gap: 15px; align-items: center;">
+                        <div class="risk-reward-badge" id="rrBadge">
+                            <span>R:R Ratio</span>
+                            <strong id="rrValue">--</strong>
+                        </div>
+                        <div class="risk-reward-badge">
+                            <span>Lot Size</span>
+                            <strong>50</strong>
+                        </div>
+                        <div class="risk-reward-badge">
+                            <span>ATR</span>
+                            <strong id="atrValue">--</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart -->
+            <div class="card" style="flex: 1;">
+                <div class="card-header">
+                    <h2>? NIFTY 50 - 5min Chart</h2>
+                </div>
+                <div class="card-body chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Technical Indicators -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>? Technical Indicators</h2>
+                </div>
+                <div class="card-body">
+                    <div class="indicator-grid">
+                        <div class="indicator-item">
+                            <label>RSI (14)</label>
+                            <div class="value" id="rsiValue">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <label>SMA 20</label>
+                            <div class="value" id="sma20Value">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <label>SMA 50</label>
+                            <div class="value" id="sma50Value">--</div>
+                        </div>
+                        <div class="indicator-item">
+                            <label>VWAP</label>
+                            <div class="value" id="vwapValue">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ML Prediction -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>? ML Prediction</h2>
+                </div>
+                <div class="card-body ml-prediction">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Market Regime</span>
+                        <strong id="regimeValue">--</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>Confidence</span>
+                        <strong id="mlConfidence">--%</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Expected Return</span>
+                        <strong id="expectedReturn">--%</strong>
+                    </div>
+                    
+                    <div class="probability-bars">
+                        <div class="prob-bar up">
+                            <label>
+                                <span>Probability UP</span>
+                                <span id="probUpValue">--%</span>
+                            </label>
+                            <div class="prob-bar-fill">
+                                <div class="fill" id="probUpBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="prob-bar down">
+                            <label>
+                                <span>Probability DOWN</span>
+                                <span id="probDownValue">--%</span>
+                            </label>
+                            <div class="prob-bar-fill">
+                                <div class="fill" id="probDownBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Signal Reasons -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>? Signal Analysis</h2>
+                </div>
+                <div class="card-body">
+                    <div class="signal-reasons">
+                        <h4>Why this signal?</h4>
+                        <ul id="signalReasons">
+                            <li>Loading analysis...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <div>
+                <span>⚠️ For educational purposes only. Not financial advice.</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span>Last Refresh: <strong id="footerUpdate">--:--:--</strong></span>
+                <button class="update-btn" onclick="requestUpdate()">? Refresh</button>
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let priceChart = null;
+        
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'NIFTY 50',
+                        data: [],
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }, {
+                        label: 'SMA 20',
+                        data: [],
+                        borderColor: '#ffc107',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#8b949e'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            grid: {
+                                color: '#30363d'
+                            },
+                            ticks: {
+                                color: '#8b949e',
+                                maxTicksLimit: 10
+                            }
+                        },
+                        y: {
+                            display: true,
+                            grid: {
+                                color: '#30363d'
+                            },
+                            ticks: {
+                                color: '#8b949e'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+        
+        // Update UI with signal data
+        function updateUI(data) {
+            if (!data || !data.signals) return;
+            
+            const signals = data.signals;
+            
+            // Update price
+            document.getElementById('currentPrice').textContent = 
+                signals.current_price.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            
+            // Update signal badge
+            const badge = document.getElementById('signalBadge');
+            const action = signals.signal.action;
+            
+            badge.className = 'signal-badge ' + action.toLowerCase();
+            document.getElementById('signalAction').textContent = action;
+            document.getElementById('signalStrength').textContent = 
+                `${signals.signal.strength} • ${signals.signal.confidence}% confidence`;
+            
+            // Update SL/Target
+            document.getElementById('stopLoss').textContent = 
+                signals.stop_loss.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            document.getElementById('target1').textContent = 
+                signals.target1.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            document.getElementById('target2').textContent = 
+                signals.target2.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            
+            // Update points
+            document.getElementById('slPoints').textContent = 
+                `${signals.points_risk.toFixed(0)} pts risk`;
+            document.getElementById('t1Points').textContent = 
+                `${signals.points_target.toFixed(0)} pts reward`;
+            document.getElementById('t2Points').textContent = 
+                `${(signals.target2 - signals.current_price).toFixed(0)} pts reward`;
+            
+            // Update R:R badge
+            const rrBadge = document.getElementById('rrBadge');
+            document.getElementById('rrValue').textContent = signals.risk_reward + ':1';
+            rrBadge.className = 'risk-reward-badge ' + 
+                (signals.risk_reward >= 2 ? 'good' : signals.risk_reward >= 1.5 ? 'moderate' : 'poor');
+            
+            // Update ATR
+            document.getElementById('atrValue').textContent = signals.atr;
+            
+            // Update indicators
+            document.getElementById('rsiValue').textContent = signals.indicators.rsi;
+            document.getElementById('sma20Value').textContent = 
+                signals.indicators.sma_20.toLocaleString('en-IN', {minimumFractionDigits: 0});
+            document.getElementById('sma50Value').textContent = 
+                signals.indicators.sma_50.toLocaleString('en-IN', {minimumFractionDigits: 0});
+            document.getElementById('vwapValue').textContent = 
+                signals.indicators.vwap.toLocaleString('en-IN', {minimumFractionDigits: 0});
+            
+            // Update ML prediction
+            const ml = signals.ml_prediction;
+            document.getElementById('regimeValue').textContent = ml.regime.toUpperCase();
+            document.getElementById('mlConfidence').textContent = ml.confidence + '%';
+            document.getElementById('expectedReturn').textContent = 
+                (ml.predicted_return >= 0 ? '+' : '') + ml.predicted_return + '%';
+            
+            document.getElementById('probUpValue').textContent = ml.prob_up + '%';
+            document.getElementById('probDownValue').textContent = ml.prob_down + '%';
+            document.getElementById('probUpBar').style.width = ml.prob_up + '%';
+            document.getElementById('probDownBar').style.width = ml.prob_down + '%';
+            
+            // Update signal reasons
+            const reasonsList = document.getElementById('signalReasons');
+            reasonsList.innerHTML = signals.signal.reasons
+                .map(r => `<li>${r}</li>`)
+                .join('');
+            
+            // Update timestamps
+            document.getElementById('lastUpdate').textContent = data.last_update || '--:--:--';
+            document.getElementById('footerUpdate').textContent = data.last_update || '--:--:--';
+            
+            // Update chart
+            if (data.chart_data && data.chart_data.ohlc) {
+                updateChart(data.chart_data);
+            }
+        }
+        
+        // Update chart data
+        function updateChart(chartData) {
+            if (!priceChart || !chartData.ohlc) return;
+            
+            const labels = chartData.labels || [];
+            const prices = chartData.ohlc.map(o => o.close);
+            const sma = chartData.sma_20 ? chartData.sma_20.map(s => s.value) : [];
+            
+            priceChart.data.labels = labels;
+            priceChart.data.datasets[0].data = prices;
+            priceChart.data.datasets[1].data = sma;
+            priceChart.update('none');
+        }
+        
+        // Request manual update
+        function requestUpdate() {
+            socket.emit('request_update');
+        }
+        
+        // Socket event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('market_update', function(data) {
+            console.log('Received market update:', data);
+            updateUI(data);
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+        });
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', function() {
+            initChart();
+            
+            // Fetch initial data
+            fetch('/api/signals')
+                .then(response => response.json())
+                .then(data => {
+                    updateUI({signals: data, last_update: new Date().toLocaleTimeString()});
+                })
+                .catch(err => console.error('Error fetching initial data:', err));
+            
+            fetch('/api/chart-data')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ohlc) {
+                        updateChart(data);
+                    }
+                })
+                .catch(err => console.error('Error fetching chart data:', err));
+        });
+        
+        // Auto refresh every 30 seconds as backup
+        setInterval(() => {
+            fetch('/api/signals')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.error) {
+                        updateUI({signals: data, last_update: new Date().toLocaleTimeString()});
+                    }
+                })
+                .catch(err => console.error('Error:', err));
+        }, 30000);
+    </script>
+</body>
+</html>

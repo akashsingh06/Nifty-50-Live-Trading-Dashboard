@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analyzer - Trading Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #f7fafc;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .nav-links { display: flex; gap: 15px; }
+
+        .nav-links a {
+            color: #a0aec0;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1));
+            border-radius: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Search Section */
+        .search-section {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 18px 25px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: #f7fafc;
+            font-size: 1.1rem;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .search-box button {
+            padding: 18px 35px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-box button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .popular-stocks {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .popular-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: #a0aec0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .popular-btn:hover {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        /* Results */
+        .results-container {
+            display: none;
+        }
+
+        .results-container.show { display: block; }
+
+        .stock-card {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stock-info h2 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .stock-price {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .stock-change {
+            font-size: 1.2rem;
+            margin-left: 15px;
+        }
+
+        .stock-change.up { color: #10b981; }
+        .stock-change.down { color: #ef4444; }
+
+        .recommendation-badge {
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .analysis-section {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .analysis-section h3 {
+            margin-bottom: 15px;
+            color: #a0aec0;
+        }
+
+        .reason-item {
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .reason-item.bullish { border-left: 3px solid #10b981; }
+        .reason-item.bearish { border-left: 3px solid #ef4444; }
+
+        /* Loading */
+        .loading-container {
+            text-align: center;
+            padding: 60px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(16, 185, 129, 0.3);
+            border-radius: 50%;
+            border-top-color: #10b981;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Comparison Table */
+        .comparison-section {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .comparison-section h3 {
+            margin-bottom: 20px;
+            color: #f7fafc;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th, .comparison-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .comparison-table th {
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .comparison-table tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .remove-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            color: #ef4444;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="/" class="nav-brand">? Trading Dashboard</a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/nifty">NIFTY F&O</a>
+                <a href="/stock-analyzer" class="active">Stock Analyzer</a>
+                <a href="/portfolio">Portfolio</a>
+            </div>
+        </nav>
+
+        <!-- Header -->
+        <div class="header">
+            <h1>? Stock Analyzer</h1>
+            <p style="color: #a0aec0;">Analyze any Indian stock with technical indicators and get BUY/SELL recommendations</p>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <div class="search-box">
+                <input type="text" id="stockInput" placeholder="Enter stock symbol (e.g., RELIANCE, TCS, INFY)" onkeypress="if(event.key === 'Enter') analyzeStock()">
+                <button onclick="analyzeStock()">? Analyze</button>
+            </div>
+            <div class="popular-stocks">
+                <span style="color: #718096; margin-right: 10px;">Popular:</span>
+                <button class="popular-btn" onclick="quickAnalyze('RELIANCE')">RELIANCE</button>
+                <button class="popular-btn" onclick="quickAnalyze('TCS')">TCS</button>
+                <button class="popular-btn" onclick="quickAnalyze('INFY')">INFY</button>
+                <button class="popular-btn" onclick="quickAnalyze('HDFCBANK')">HDFC BANK</button>
+                <button class="popular-btn" onclick="quickAnalyze('ICICIBANK')">ICICI BANK</button>
+                <button class="popular-btn" onclick="quickAnalyze('SBIN')">SBI</button>
+                <button class="popular-btn" onclick="quickAnalyze('WIPRO')">WIPRO</button>
+                <button class="popular-btn" onclick="quickAnalyze('ITC')">ITC</button>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div class="results-container" id="resultsContainer">
+            <!-- Stock cards will be added here -->
+        </div>
+
+        <!-- Comparison Section -->
+        <div class="comparison-section" id="comparisonSection" style="display: none;">
+            <h3>? Stock Comparison</h3>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Stock</th>
+                        <th>Price</th>
+                        <th>Day %</th>
+                        <th>Week %</th>
+                        <th>RSI</th>
+                        <th>Signal</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="comparisonBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let analyzedStocks = [];
+
+        function quickAnalyze(symbol) {
+            document.getElementById('stockInput').value = symbol;
+            analyzeStock();
+        }
+
+        function analyzeStock() {
+            const symbol = document.getElementById('stockInput').value.trim().toUpperCase();
+            if (!symbol) {
+                alert('Please enter a stock symbol');
+                return;
+            }
+
+            // Check if already analyzed
+            if (analyzedStocks.find(s => s.symbol === symbol)) {
+                alert(`${symbol} is already in the analysis`);
+                return;
+            }
+
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.classList.add('show');
+
+            // Add loading card
+            const loadingCard = document.createElement('div');
+            loadingCard.id = `loading-${symbol}`;
+            loadingCard.className = 'stock-card';
+            loadingCard.innerHTML = `
+                <div class="loading-container">
+                    <div class="loading"></div>
+                    <p style="margin-top: 20px; color: #a0aec0;">Analyzing ${symbol}...</p>
+                </div>
+            `;
+            resultsContainer.insertBefore(loadingCard, resultsContainer.firstChild);
+
+            fetch(`/api/stock/${symbol}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Remove loading card
+                    document.getElementById(`loading-${symbol}`).remove();
+
+                    if (data.error) {
+                        showError(symbol, data.error);
+                        return;
+                    }
+
+                    analyzedStocks.unshift(data);
+                    renderStockCard(data);
+                    updateComparisonTable();
+                })
+                .catch(err => {
+                    document.getElementById(`loading-${symbol}`).remove();
+                    showError(symbol, err.message);
+                });
+
+            document.getElementById('stockInput').value = '';
+        }
+
+        function showError(symbol, error) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const errorCard = document.createElement('div');
+            errorCard.className = 'stock-card';
+            errorCard.innerHTML = `
+                <div style="text-align: center; padding: 30px;">
+                    <p style="color: #ef4444; font-size: 1.2rem;">❌ Error analyzing ${symbol}</p>
+                    <p style="color: #a0aec0; margin-top: 10px;">${error}</p>
+                </div>
+            `;
+            resultsContainer.insertBefore(errorCard, resultsContainer.firstChild);
+            
+            setTimeout(() => errorCard.remove(), 5000);
+        }
+
+        function renderStockCard(data) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            
+            const card = document.createElement('div');
+            card.className = 'stock-card';
+            card.id = `stock-${data.symbol}`;
+
+            const changeClass = data.day_change >= 0 ? 'up' : 'down';
+            const changePrefix = data.day_change >= 0 ? '+' : '';
+
+            // Determine reason classes
+            const reasonsHtml = data.reasons.map(reason => {
+                const isBullish = reason.toLowerCase().includes('bullish') || 
+                                  reason.toLowerCase().includes('above') || 
+                                  reason.toLowerCase().includes('oversold');
+                return `<div class="reason-item ${isBullish ? 'bullish' : 'bearish'}">${isBullish ? '?' : '?'} ${reason}</div>`;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="stock-header">
+                    <div class="stock-info">
+                        <h2>${data.symbol}</h2>
+                        <div>
+                            <span class="stock-price">₹${data.current_price.toLocaleString()}</span>
+                            <span class="stock-change ${changeClass}">${changePrefix}${data.day_change}%</span>
+                        </div>
+                    </div>
+                    <div class="recommendation-badge" style="background: ${data.rec_color}">
+                        ${data.recommendation}
+                    </div>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Day Change</div>
+                        <div class="metric-value" style="color: ${data.day_change >= 0 ? '#10b981' : '#ef4444'}">${changePrefix}${data.day_change}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Week Change</div>
+                        <div class="metric-value" style="color: ${data.week_change >= 0 ? '#10b981' : '#ef4444'}">${data.week_change >= 0 ? '+' : ''}${data.week_change}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Month Change</div>
+                        <div class="metric-value" style="color: ${data.month_change >= 0 ? '#10b981' : '#ef4444'}">${data.month_change >= 0 ? '+' : ''}${data.month_change}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">RSI (14)</div>
+                        <div class="metric-value" style="color: ${data.rsi > 70 ? '#ef4444' : data.rsi < 30 ? '#10b981' : '#f59e0b'}">${data.rsi}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">EMA 20</div>
+                        <div class="metric-value">₹${data.ema_20}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">EMA 50</div>
+                        <div class="metric-value">₹${data.ema_50}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">MACD</div>
+                        <div class="metric-value" style="color: ${data.macd > data.signal_line ? '#10b981' : '#ef4444'}">${data.macd}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Signal Score</div>
+                        <div class="metric-value">${data.bullish_points}B / ${data.bearish_points}S</div>
+                    </div>
+                </div>
+
+                <div class="analysis-section">
+                    <h3>? Analysis Breakdown</h3>
+                    ${reasonsHtml}
+                </div>
+
+                <p style="text-align: right; color: #718096; font-size: 0.85rem; margin-top: 15px;">
+                    Last updated: ${data.timestamp}
+                </p>
+            `;
+
+            resultsContainer.insertBefore(card, resultsContainer.firstChild);
+        }
+
+        function updateComparisonTable() {
+            if (analyzedStocks.length < 2) {
+                document.getElementById('comparisonSection').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('comparisonSection').style.display = 'block';
+            const tbody = document.getElementById('comparisonBody');
+            
+            tbody.innerHTML = analyzedStocks.map(stock => `
+                <tr>
+                    <td><strong>${stock.symbol}</strong></td>
+                    <td>₹${stock.current_price.toLocaleString()}</td>
+                    <td style="color: ${stock.day_change >= 0 ? '#10b981' : '#ef4444'}">${stock.day_change >= 0 ? '+' : ''}${stock.day_change}%</td>
+                    <td style="color: ${stock.week_change >= 0 ? '#10b981' : '#ef4444'}">${stock.week_change >= 0 ? '+' : ''}${stock.week_change}%</td>
+                    <td>${stock.rsi}</td>
+                    <td><span style="background: ${stock.rec_color}; color: white; padding: 3px 10px; border-radius: 10px; font-size: 0.85rem;">${stock.recommendation}</span></td>
+                    <td><button class="remove-btn" onclick="removeStock('${stock.symbol}')">✕</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function removeStock(symbol) {
+            analyzedStocks = analyzedStocks.filter(s => s.symbol !== symbol);
+            const card = document.getElementById(`stock-${symbol}`);
+            if (card) card.remove();
+            updateComparisonTable();
+            
+            if (analyzedStocks.length === 0) {
+                document.getElementById('resultsContainer').classList.remove('show');
+            }
+        }
+    </script>
+</body>
+</html>

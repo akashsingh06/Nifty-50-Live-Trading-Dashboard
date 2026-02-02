@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio - Trading Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #f7fafc;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .nav-links { display: flex; gap: 15px; }
+
+        .nav-links a {
+            color: #a0aec0;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            background: rgba(139, 92, 246, 0.2);
+            color: #8b5cf6;
+        }
+
+        /* Header Stats */
+        .header-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .stat-card.highlight {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #718096;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .stat-value.profit { color: #10b981; }
+        .stat-value.loss { color: #ef4444; }
+        .stat-value.neutral { color: #f59e0b; }
+
+        .stat-change {
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        /* Section Titles */
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Open Positions */
+        .positions-section {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .position-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .position-card:last-child { margin-bottom: 0; }
+
+        .position-type {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .position-type .icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .position-type .icon.call { background: rgba(16, 185, 129, 0.2); }
+        .position-type .icon.put { background: rgba(239, 68, 68, 0.2); }
+
+        .position-info h4 {
+            font-size: 1rem;
+            margin-bottom: 3px;
+        }
+
+        .position-info p {
+            font-size: 0.85rem;
+            color: #718096;
+        }
+
+        .position-metrics {
+            display: flex;
+            gap: 25px;
+        }
+
+        .position-metric {
+            text-align: center;
+        }
+
+        .position-metric .label {
+            font-size: 0.75rem;
+            color: #718096;
+        }
+
+        .position-metric .value {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .no-positions {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        /* Trade History */
+        .history-section {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .history-table th, .history-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-table th {
+            color: #718096;
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+
+        .history-table tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .trade-type {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .trade-type.call {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .trade-type.put {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .pnl-value.profit { color: #10b981; }
+        .pnl-value.loss { color: #ef4444; }
+
+        /* Performance Chart Placeholder */
+        .performance-section {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chart-placeholder {
+            height: 300px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #718096;
+        }
+
+        /* Risk Metrics */
+        .risk-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .risk-card {
+            background: linear-gradient(145deg, #1e1e2e, #252540);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .risk-card h4 {
+            color: #a0aec0;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .risk-value {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .risk-label {
+            color: #718096;
+            font-size: 0.85rem;
+        }
+
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(139, 92, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #8b5cf6;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="nav">
+            <a href="/" class="nav-brand">? Trading Dashboard</a>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/nifty">NIFTY F&O</a>
+                <a href="/stock-analyzer">Stock Analyzer</a>
+                <a href="/portfolio" class="active">Portfolio</a>
+            </div>
+        </nav>
+
+        <!-- Header Stats -->
+        <div class="header-stats">
+            <div class="stat-card highlight">
+                <div class="stat-label">Initial Capital</div>
+                <div class="stat-value" id="initialCapital">₹1,00,000</div>
+            </div>
+            <div class="stat-card highlight">
+                <div class="stat-label">Current Capital</div>
+                <div class="stat-value" id="currentCapital">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total P&L</div>
+                <div class="stat-value" id="totalPnl">--</div>
+                <div class="stat-change" id="pnlPercent">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value neutral" id="winRate">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Trades</div>
+                <div class="stat-value" id="totalTrades">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Open Positions</div>
+                <div class="stat-value" id="openPositionsCount">--</div>
+            </div>
+        </div>
+
+        <!-- Risk Metrics -->
+        <div class="risk-section">
+            <div class="risk-card">
+                <h4>? Max Drawdown</h4>
+                <div class="risk-value loss" id="maxDrawdown">--</div>
+                <div class="risk-label">Worst peak-to-trough decline</div>
+            </div>
+            <div class="risk-card">
+                <h4>? Profit Factor</h4>
+                <div class="risk-value" id="profitFactor">--</div>
+                <div class="risk-label">Gross Profit / Gross Loss</div>
+            </div>
+            <div class="risk-card">
+                <h4>? Risk-Reward Ratio</h4>
+                <div class="risk-value" id="riskReward">--</div>
+                <div class="risk-label">Average Win / Average Loss</div>
+            </div>
+            <div class="risk-card">
+                <h4>? Best Streak</h4>
+                <div class="risk-value profit" id="bestStreak">--</div>
+                <div class="risk-label">Consecutive wins</div>
+            </div>
+        </div>
+
+        <!-- Open Positions -->
+        <div class="positions-section">
+            <h3 class="section-title">? Open Positions</h3>
+            <div id="openPositions">
+                <div class="no-positions">
+                    <p>No open positions</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade History -->
+        <div class="history-section">
+            <h3 class="section-title">? Trade History</h3>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Trade ID</th>
+                        <th>Type</th>
+                        <th>Strike</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>Qty</th>
+                        <th>P&L</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="tradeHistory">
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #718096; padding: 30px;">
+                            No trade history yet
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Performance Stats -->
+        <div class="header-stats" style="margin-top: 30px;">
+            <div class="stat-card">
+                <div class="stat-label">Avg Profit</div>
+                <div class="stat-value profit" id="avgProfit">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Loss</div>
+                <div class="stat-value loss" id="avgLoss">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Largest Win</div>
+                <div class="stat-value profit" id="largestWin">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Largest Loss</div>
+                <div class="stat-value loss" id="largestLoss">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Winning Trades</div>
+                <div class="stat-value profit" id="winningTrades">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Losing Trades</div>
+                <div class="stat-value loss" id="losingTrades">--</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load portfolio data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPortfolio();
+            setInterval(loadPortfolio, 30000); // Refresh every 30 seconds
+        });
+
+        function loadPortfolio() {
+            fetch('/api/portfolio')
+                .then(response => response.json())
+                .then(data => {
+                    updatePortfolioStats(data.portfolio);
+                    updateOpenPositions(data.open_positions);
+                    updateTradeHistory(data.trade_history);
+                })
+                .catch(err => console.error('Error loading portfolio:', err));
+        }
+
+        function updatePortfolioStats(p) {
+            if (!p) return;
+
+            document.getElementById('initialCapital').textContent = `₹${p.initial_capital.toLocaleString()}`;
+            document.getElementById('currentCapital').textContent = `₹${p.current_capital.toLocaleString()}`;
+            
+            const pnlEl = document.getElementById('totalPnl');
+            pnlEl.textContent = `₹${p.total_pnl.toLocaleString()}`;
+            pnlEl.className = `stat-value ${p.total_pnl >= 0 ? 'profit' : 'loss'}`;
+            
+            document.getElementById('pnlPercent').textContent = `${p.total_pnl_percent >= 0 ? '+' : ''}${p.total_pnl_percent}%`;
+            document.getElementById('pnlPercent').style.color = p.total_pnl_percent >= 0 ? '#10b981' : '#ef4444';
+            
+            document.getElementById('winRate').textContent = `${p.win_rate}%`;
+            document.getElementById('totalTrades').textContent = p.total_trades;
+            document.getElementById('openPositionsCount').textContent = p.open_positions;
+
+            // Risk metrics
+            document.getElementById('maxDrawdown').textContent = `${p.max_drawdown || 0}%`;
+            document.getElementById('profitFactor').textContent = p.profit_factor || '--';
+            document.getElementById('riskReward').textContent = p.risk_reward_ratio ? `1:${p.risk_reward_ratio}` : '--';
+            document.getElementById('bestStreak').textContent = p.max_consecutive_wins || 0;
+
+            // Performance stats
+            document.getElementById('avgProfit').textContent = `₹${p.avg_profit || 0}`;
+            document.getElementById('avgLoss').textContent = `₹${Math.abs(p.avg_loss || 0)}`;
+            document.getElementById('largestWin').textContent = `₹${p.largest_win || 0}`;
+            document.getElementById('largestLoss').textContent = `₹${Math.abs(p.largest_loss || 0)}`;
+            document.getElementById('winningTrades').textContent = p.winning_trades || 0;
+            document.getElementById('losingTrades').textContent = p.losing_trades || 0;
+        }
+
+        function updateOpenPositions(positions) {
+            const container = document.getElementById('openPositions');
+            
+            if (!positions || positions.length === 0) {
+                container.innerHTML = `
+                    <div class="no-positions">
+                        <p>No open positions</p>
+                        <p style="margin-top: 10px; font-size: 0.9rem;">Go to <a href="/nifty" style="color: #3b82f6;">NIFTY F&O Dashboard</a> to execute trades</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = positions.map(pos => {
+                const isCall = pos.option_type === 'CE';
+                return `
+                    <div class="position-card">
+                        <div class="position-type">
+                            <div class="icon ${isCall ? 'call' : 'put'}">${isCall ? '?' : '?'}</div>
+                            <div class="position-info">
+                                <h4>${pos.trade_id}</h4>
+                                <p>${pos.strike_price} ${pos.option_type}</p>
+                            </div>
+                        </div>
+                        <div class="position-metrics">
+                            <div class="position-metric">
+                                <div class="label">Entry</div>
+                                <div class="value">₹${pos.entry_premium}</div>
+                            </div>
+                            <div class="position-metric">
+                                <div class="label">Qty</div>
+                                <div class="value">${pos.quantity} lots</div>
+                            </div>
+                            <div class="position-metric">
+                                <div class="label">SL</div>
+                                <div class="value" style="color: #ef4444;">₹${pos.stop_loss_premium}</div>
+                            </div>
+                            <div class="position-metric">
+                                <div class="label">Target</div>
+                                <div class="value" style="color: #10b981;">₹${pos.target_1_premium}</div>
+                            </div>
+                        </div>
+                        <button class="close-btn" onclick="closeTrade('${pos.trade_id}')">Close Trade</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateTradeHistory(history) {
+            const tbody = document.getElementById('tradeHistory');
+            
+            if (!history || history.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #718096; padding: 30px;">
+                            No trade history yet
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = history.map(trade => {
+                const isCall = trade.option_type === 'CE';
+                const pnl = trade.pnl || 0;
+                const pnlClass = pnl >= 0 ? 'profit' : 'loss';
+                
+                return `
+                    <tr>
+                        <td>${trade.trade_id}</td>
+                        <td><span class="trade-type ${isCall ? 'call' : 'put'}">${trade.option_type}</span></td>
+                        <td>${trade.strike_price}</td>
+                        <td>₹${trade.entry_premium}</td>
+                        <td>₹${trade.exit_premium || '--'}</td>
+                        <td>${trade.quantity}</td>
+                        <td class="pnl-value ${pnlClass}">${pnl >= 0 ? '+' : ''}₹${pnl.toLocaleString()}</td>
+                        <td>${trade.entry_time ? trade.entry_time.split(' ')[0] : '--'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function closeTrade(tradeId) {
+            if (!confirm(`Close trade ${tradeId}?`)) return;
+
+            fetch(`/api/close-trade/${tradeId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Trade closed successfully!');
+                    loadPortfolio();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => alert('Error closing trade: ' + err.message));
+        }
+    </script>
+</body>
+</html>
